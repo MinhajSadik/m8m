@@ -4,8 +4,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input, Label, Textarea } from "@/components/ui/input"
-import { Save, User, Bell, Palette, Shield, Globe } from "lucide-react"
-import { useSession } from "next-auth/react"
+import { Save, User, Bell, Palette, Shield } from "lucide-react"
 
 const TABS = [
   { id: "profile", label: "Profile", icon: User },
@@ -15,9 +14,8 @@ const TABS = [
 ]
 
 export default function SettingsPage() {
-  const { data: session } = useSession()
   const [tab, setTab] = useState("profile")
-  const [name, setName] = useState(session?.user?.name ?? "")
+  const [name, setName] = useState("")
   const [saving, setSaving] = useState(false)
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -80,7 +78,7 @@ export default function SettingsPage() {
                   <div className="flex flex-col gap-1.5">
                     <Label>Email</Label>
                     <Input
-                      value={session?.user?.email ?? ""}
+                      value=""
                       disabled
                       className="opacity-50"
                     />
