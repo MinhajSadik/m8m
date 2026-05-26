@@ -8,6 +8,8 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { authConfig } from "@/auth.config"
 
+export const GUEST_USER_ID = "guest"
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),

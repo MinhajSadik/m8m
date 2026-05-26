@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto"
@@ -19,11 +19,10 @@ function encrypt(text: string): string {
 }
 
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const credentials = await prisma.credential.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
   })
@@ -38,8 +37,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const body = await request.json()
   const parsed = schema.safeParse(body)
@@ -52,7 +50,7 @@ export async function POST(request: Request) {
       name: parsed.data.name,
       type: parsed.data.type,
       data: encryptedData,
-      userId: session.user.id,
+      userId,
     },
     select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
   })

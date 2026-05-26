@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
 export async function POST(
@@ -7,11 +7,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const workflow = await prisma.workflow.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId },
   })
   if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -23,7 +22,7 @@ export async function POST(
       edges: JSON.parse(JSON.stringify(workflow.edges)),
       settings: JSON.parse(JSON.stringify(workflow.settings)),
       tags: workflow.tags,
-      userId: session.user.id,
+      userId,
       active: false,
     },
   })

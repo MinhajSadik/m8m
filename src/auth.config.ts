@@ -7,10 +7,8 @@ export const authConfig = {
   },
   session: { strategy: "jwt" as const },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user
-      if (isLoggedIn) return true
-      return Response.redirect(new URL("/login", nextUrl))
+    authorized() {
+      return true
     },
   },
   providers: [],

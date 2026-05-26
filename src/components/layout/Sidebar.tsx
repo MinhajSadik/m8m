@@ -2,16 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
 import {
   Workflow,
   ListChecks,
   KeyRound,
   Settings,
-  LogOut,
   Plus,
-  ChevronRight,
-  LayoutDashboard,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip } from "@/components/ui/tooltip"
@@ -68,17 +64,6 @@ export function Sidebar() {
           )
         })}
       </nav>
-
-      <div className="mt-auto flex flex-col items-center gap-1 w-full px-2">
-        <Tooltip content="Sign out" side="right">
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex items-center justify-center w-full h-9 rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </Tooltip>
-      </div>
     </aside>
   )
 }

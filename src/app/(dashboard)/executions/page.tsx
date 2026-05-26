@@ -1,12 +1,12 @@
-import { auth } from "@/lib/auth"
+import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { ExecutionsClient } from "./executions-client"
 
 export default async function ExecutionsPage() {
-  const session = await auth()
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const executions = await prisma.workflowExecution.findMany({
-    where: { workflow: { userId: session!.user!.id! } },
+    where: { workflow: { userId } },
     orderBy: { startedAt: "desc" },
     take: 100,
     include: {

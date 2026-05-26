@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation"
-import { auth } from "@/lib/auth"
+import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { WorkflowEditorWrapper } from "./workflow-editor-wrapper"
 import type { WorkflowData } from "@/types"
@@ -10,14 +10,13 @@ export default async function WorkflowEditorPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const session = await auth()
-  if (!session?.user?.id) redirect("/login")
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   if (id === "new") {
     const workflow = await prisma.workflow.create({
       data: {
         name: "Untitled Workflow",
-        userId: session.user.id,
+        userId,
         nodes: [],
         edges: [],
         settings: {
@@ -34,7 +33,7 @@ export default async function WorkflowEditorPage({
   }
 
   const workflow = await prisma.workflow.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId },
   })
 
   if (!workflow) notFound()

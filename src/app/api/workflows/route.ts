@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
 
@@ -12,11 +12,10 @@ const createSchema = z.object({
 })
 
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const workflows = await prisma.workflow.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     orderBy: { updatedAt: "desc" },
     include: {
       _count: { select: { executions: true } },
@@ -53,8 +52,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const body = await request.json()
   const parsed = createSchema.safeParse(body)
@@ -67,7 +65,7 @@ export async function POST(request: Request) {
       nodes: parsed.data.nodes ?? [],
       edges: parsed.data.edges ?? [],
       tags: parsed.data.tags ?? [],
-      userId: session.user.id,
+      userId,
       settings: {
         timezone: "UTC",
         saveExecution: "all",

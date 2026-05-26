@@ -1,11 +1,6 @@
-import NextAuth from "next-auth"
-import { authConfig } from "@/auth.config"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-const { auth } = NextAuth(authConfig)
-export default auth
-
-export const config = {
-  matcher: [
-    "/((?!api/auth|api/webhook|_next/static|_next/image|favicon.ico|login|register).*)",
-  ],
+export function middleware(_req: NextRequest) {
+  return NextResponse.next()
 }

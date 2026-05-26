@@ -1,12 +1,12 @@
-import { auth } from "@/lib/auth"
+import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { CredentialsClient } from "./credentials-client"
 
 export default async function CredentialsPage() {
-  const session = await auth()
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const credentials = await prisma.credential.findMany({
-    where: { userId: session!.user!.id! },
+    where: { userId },
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
   })
