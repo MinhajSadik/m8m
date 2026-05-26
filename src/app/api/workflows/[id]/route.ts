@@ -21,30 +21,35 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  try {
+    const { id } = await params
+    const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflow = await getWorkflow(id, userId)
-  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const workflow = await getWorkflow(id, userId)
+    if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  return NextResponse.json({
-    id: workflow.id,
-    name: workflow.name,
-    description: workflow.description,
-    active: workflow.active,
-    nodes: workflow.nodes,
-    edges: workflow.edges,
-    settings: workflow.settings,
-    tags: workflow.tags,
-    createdAt: workflow.createdAt.toISOString(),
-    updatedAt: workflow.updatedAt.toISOString(),
-  })
+    return NextResponse.json({
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description,
+      active: workflow.active,
+      nodes: workflow.nodes,
+      edges: workflow.edges,
+      settings: workflow.settings,
+      tags: workflow.tags,
+      createdAt: workflow.createdAt.toISOString(),
+      updatedAt: workflow.updatedAt.toISOString(),
+    })
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
@@ -90,18 +95,25 @@ export async function PATCH(
     active: updated.active,
     updatedAt: updated.updatedAt.toISOString(),
   })
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  try {
+    const { id } = await params
+    const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflow = await getWorkflow(id, userId)
-  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const workflow = await getWorkflow(id, userId)
+    if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  await prisma.workflow.delete({ where: { id } })
-  return new NextResponse(null, { status: 204 })
+    await prisma.workflow.delete({ where: { id } })
+    return new NextResponse(null, { status: 204 })
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
 }

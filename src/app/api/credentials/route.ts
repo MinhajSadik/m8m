@@ -19,21 +19,25 @@ function encrypt(text: string): string {
 }
 
 export async function GET() {
-  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  try {
+    const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const credentials = await prisma.credential.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
-  })
+    const credentials = await prisma.credential.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
+    })
 
-  return NextResponse.json(
-    credentials.map((c) => ({
-      ...c,
-      createdAt: c.createdAt.toISOString(),
-      updatedAt: c.updatedAt.toISOString(),
-    }))
-  )
+    return NextResponse.json(
+      credentials.map((c) => ({
+        ...c,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      }))
+    )
+  } catch {
+    return NextResponse.json([])
+  }
 }
 
 export async function POST(request: Request) {
@@ -45,19 +49,22 @@ export async function POST(request: Request) {
 
   const encryptedData = encrypt(parsed.data.data)
 
-  const credential = await prisma.credential.create({
-    data: {
-      name: parsed.data.name,
-      type: parsed.data.type,
-      data: encryptedData,
-      userId,
-    },
-    select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
-  })
-
-  return NextResponse.json({
-    ...credential,
-    createdAt: credential.createdAt.toISOString(),
-    updatedAt: credential.updatedAt.toISOString(),
-  })
+  try {
+    const credential = await prisma.credential.create({
+      data: {
+        name: parsed.data.name,
+        type: parsed.data.type,
+        data: encryptedData,
+        userId,
+      },
+      select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
+    })
+    return NextResponse.json({
+      ...credential,
+      createdAt: credential.createdAt.toISOString(),
+      updatedAt: credential.updatedAt.toISOString(),
+    })
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
 }

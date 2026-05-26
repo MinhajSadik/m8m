@@ -6,6 +6,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
@@ -51,4 +52,7 @@ export async function GET(
       })),
     }))
   )
+  } catch {
+    return NextResponse.json([])
+  }
 }

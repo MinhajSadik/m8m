@@ -72,9 +72,14 @@ export async function POST(
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflow = await prisma.workflow.findFirst({
-    where: { id, userId },
-  })
+  let workflow
+  try {
+    workflow = await prisma.workflow.findFirst({
+      where: { id, userId },
+    })
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
   if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const body = await request.json()

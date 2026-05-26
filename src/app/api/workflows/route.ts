@@ -12,6 +12,7 @@ const createSchema = z.object({
 })
 
 export async function GET() {
+  try {
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   const workflows = await prisma.workflow.findMany({
@@ -49,6 +50,9 @@ export async function GET() {
         : null,
     }))
   )
+  } catch {
+    return NextResponse.json([])
+  }
 }
 
 export async function POST(request: Request) {
@@ -58,32 +62,35 @@ export async function POST(request: Request) {
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const workflow = await prisma.workflow.create({
-    data: {
-      name: parsed.data.name,
-      description: parsed.data.description,
-      nodes: parsed.data.nodes ?? [],
-      edges: parsed.data.edges ?? [],
-      tags: parsed.data.tags ?? [],
-      userId,
-      settings: {
-        timezone: "UTC",
-        saveExecution: "all",
-        retryOnFail: false,
-        retryCount: 3,
-        retryDelay: 1000,
-        timeout: 30000,
+  try {
+    const workflow = await prisma.workflow.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        nodes: parsed.data.nodes ?? [],
+        edges: parsed.data.edges ?? [],
+        tags: parsed.data.tags ?? [],
+        userId,
+        settings: {
+          timezone: "UTC",
+          saveExecution: "all",
+          retryOnFail: false,
+          retryCount: 3,
+          retryDelay: 1000,
+          timeout: 30000,
+        },
       },
-    },
-  })
-
-  return NextResponse.json({
-    id: workflow.id,
-    name: workflow.name,
-    description: workflow.description,
-    active: workflow.active,
-    tags: workflow.tags,
-    createdAt: workflow.createdAt.toISOString(),
-    updatedAt: workflow.updatedAt.toISOString(),
-  })
+    })
+    return NextResponse.json({
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description,
+      active: workflow.active,
+      tags: workflow.tags,
+      createdAt: workflow.createdAt.toISOString(),
+      updatedAt: workflow.updatedAt.toISOString(),
+    })
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
 }
