@@ -2,6 +2,7 @@
   "name": "m8m",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.11.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -53,5 +54,8 @@
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/engines", "prisma", "sharp", "unrs-resolver"]
   }
 }
