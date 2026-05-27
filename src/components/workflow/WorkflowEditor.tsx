@@ -36,6 +36,8 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
     selectedNodeId,
     setSelectedNode,
     executionNodeStatuses,
+    executionNodeTimes,
+    activeEdges,
     panelOpen,
     addNode,
   } = useWorkflowStore()
@@ -53,7 +55,16 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
     data: {
       ...node.data,
       status: executionNodeStatuses[node.id] ?? node.data.status ?? "idle",
+      executionTime: executionNodeTimes[node.id],
     },
+  }))
+
+  const edgesWithAnimation = edges.map((edge) => ({
+    ...edge,
+    animated: activeEdges.has(edge.id),
+    style: activeEdges.has(edge.id)
+      ? { strokeWidth: 2.5, stroke: "#22c55e" }
+      : { strokeWidth: 2, stroke: "#52525b" },
   }))
 
   const onNodeClick = useCallback(
@@ -126,7 +137,7 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
         <div ref={reactFlowWrapper} className="flex-1 relative">
           <ReactFlow
             nodes={nodesWithStatus}
-            edges={edges}
+            edges={edgesWithAnimation}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

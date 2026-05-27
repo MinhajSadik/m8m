@@ -102,8 +102,18 @@ export const WorkflowNode = memo(function WorkflowNode({
           <span className="text-xs font-medium text-zinc-100 truncate leading-tight">
             {nodeData.label}
           </span>
-          {nodeData.executionTime && (
-            <span className="text-[10px] text-zinc-500 mt-0.5">
+          {nodeData.status === "running" && (
+            <span className="text-[10px] text-blue-400 mt-0.5 animate-pulse">
+              Processing...
+            </span>
+          )}
+          {nodeData.status === "waiting" && (
+            <span className="text-[10px] text-amber-400 mt-0.5">
+              Waiting...
+            </span>
+          )}
+          {(nodeData.status === "success" || nodeData.status === "error") && nodeData.executionTime && (
+            <span className={`text-[10px] mt-0.5 ${nodeData.status === "success" ? "text-emerald-400" : "text-red-400"}`}>
               {nodeData.executionTime}ms
             </span>
           )}

@@ -18,6 +18,9 @@ interface WorkflowStore {
   isSaving: boolean
   isExecuting: boolean
   executionNodeStatuses: Record<string, NodeData["status"]>
+  executionNodeTimes: Record<string, number>
+  executionProgress: { current: number; total: number } | null
+  activeEdges: Set<string>
   panelOpen: boolean
   historyStack: { nodes: Node<NodeData>[]; edges: Edge[] }[]
   historyIndex: number
@@ -35,6 +38,10 @@ interface WorkflowStore {
   setIsSaving: (saving: boolean) => void
   setIsExecuting: (executing: boolean) => void
   setNodeStatus: (nodeId: string, status: NodeData["status"]) => void
+  setNodeExecutionTime: (nodeId: string, ms: number) => void
+  setExecutionProgress: (progress: { current: number; total: number } | null) => void
+  setActiveEdge: (edgeId: string, active: boolean) => void
+  clearActiveEdges: () => void
   clearNodeStatuses: () => void
   updateWorkflowName: (name: string) => void
   updateWorkflowSettings: (settings: Partial<WorkflowSettings>) => void
@@ -58,6 +65,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
     isSaving: false,
     isExecuting: false,
     executionNodeStatuses: {},
+    executionNodeTimes: {},
+    executionProgress: null,
+    activeEdges: new Set(),
     panelOpen: true,
     historyStack: [],
     historyIndex: -1,
@@ -160,7 +170,24 @@ export const useWorkflowStore = create<WorkflowStore>()(
         executionNodeStatuses: { ...state.executionNodeStatuses, [nodeId]: status },
       })),
 
-    clearNodeStatuses: () => set({ executionNodeStatuses: {} }),
+    setNodeExecutionTime: (nodeId, ms) =>
+      set((state) => ({
+        executionNodeTimes: { ...state.executionNodeTimes, [nodeId]: ms },
+      })),
+
+    setExecutionProgress: (progress) => set({ executionProgress: progress }),
+
+    setActiveEdge: (edgeId, active) =>
+      set((state) => {
+        const newSet = new Set(state.activeEdges)
+        if (active) newSet.add(edgeId)
+        else newSet.delete(edgeId)
+        return { activeEdges: newSet }
+      }),
+
+    clearActiveEdges: () => set({ activeEdges: new Set() }),
+
+    clearNodeStatuses: () => set({ executionNodeStatuses: {}, executionNodeTimes: {}, executionProgress: null, activeEdges: new Set() }),
 
     updateWorkflowName: (name) =>
       set((state) => ({

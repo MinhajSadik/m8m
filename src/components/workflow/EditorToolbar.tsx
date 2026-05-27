@@ -39,6 +39,7 @@ export function EditorToolbar({
     isSaving,
     isExecuting,
     panelOpen,
+    executionProgress,
     setPanelOpen,
     setIsSaving,
     setIsExecuting,
@@ -50,6 +51,10 @@ export function EditorToolbar({
     historyIndex,
     historyStack,
     setNodeStatus,
+    setNodeExecutionTime,
+    setExecutionProgress,
+    setActiveEdge,
+    clearActiveEdges,
     clearNodeStatuses,
   } = useWorkflowStore()
 
@@ -76,11 +81,14 @@ export function EditorToolbar({
   async function handleExecute() {
     if (!workflow || isExecuting) return
     clearNodeStatuses()
+    clearActiveEdges()
     setIsExecuting(true)
 
     for (const node of nodes) {
       setNodeStatus(node.id, "waiting")
     }
+
+    toast.info("Executing workflow...", { duration: 2000 })
 
     const res = await fetch(`/api/workflows/${workflow.id}/execute`, {
       method: "POST",
@@ -96,23 +104,65 @@ export function EditorToolbar({
     }
 
     const data = await res.json()
-    const steps: { nodeId: string; status: string; durationMs: number; nodeName: string; error?: string }[] = data.steps ?? []
+    const steps: { nodeId: string; status: string; durationMs: number; nodeName: string; nodeType: string; error?: string }[] = data.steps ?? []
+
+    setExecutionProgress({ current: 0, total: steps.length })
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i]
+      setExecutionProgress({ current: i + 1, total: steps.length })
+
+      const incomingEdges = edges.filter((e) => e.target === step.nodeId)
+      for (const edge of incomingEdges) {
+        setActiveEdge(edge.id, true)
+      }
+      await new Promise((r) => setTimeout(r, 150))
+
       setNodeStatus(step.nodeId, "running")
-      await new Promise((r) => setTimeout(r, 400))
+
+      const isIntegration = step.nodeType?.startsWith("integration.")
+      const isTrigger = step.nodeType?.startsWith("trigger.")
+      const runDelay = isIntegration ? 800 : isTrigger ? 400 : 300
+      await new Promise((r) => setTimeout(r, runDelay))
+
       setNodeStatus(step.nodeId, step.status === "SUCCESS" ? "success" : "error")
+      setNodeExecutionTime(step.nodeId, step.durationMs ?? runDelay)
+
+      for (const edge of incomingEdges) {
+        setActiveEdge(edge.id, false)
+      }
+
+      const outgoingEdges = edges.filter((e) => e.source === step.nodeId)
+      if (step.status === "SUCCESS" && i < steps.length - 1) {
+        for (const edge of outgoingEdges) {
+          setActiveEdge(edge.id, true)
+        }
+      }
+
       await new Promise((r) => setTimeout(r, 200))
+
+      for (const edge of outgoingEdges) {
+        setActiveEdge(edge.id, false)
+      }
     }
 
     setIsExecuting(false)
+    setExecutionProgress(null)
+    clearActiveEdges()
 
     if (data.status === "SUCCESS") {
-      toast.success(`Workflow executed successfully (${data.durationMs}ms, ${steps.length} steps)`)
+      toast.success(
+        `Workflow executed successfully — ${steps.length} node${steps.length > 1 ? "s" : ""} completed in ${data.durationMs}ms`,
+        { duration: 5000 }
+      )
     } else {
-      toast.error(`Execution failed: ${data.error ?? "Unknown error"}`)
+      toast.error(
+        `Execution failed at "${steps.find((s) => s.status !== "SUCCESS")?.nodeName ?? "unknown"}" — ${data.error ?? "Unknown error"}`,
+        { duration: 8000 }
+      )
     }
+
+    onToggleExecutionPanel()
   }
 
   function handleNameSubmit() {
@@ -246,14 +296,26 @@ export function EditorToolbar({
           size="sm"
           onClick={handleExecute}
           disabled={isExecuting || nodes.length === 0}
-          className="relative"
+          className="relative overflow-hidden"
         >
-          {isExecuting ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Play className="w-3.5 h-3.5" />
+          {isExecuting && executionProgress && (
+            <span
+              className="absolute inset-0 bg-emerald-500/20 transition-all duration-300"
+              style={{ width: `${(executionProgress.current / executionProgress.total) * 100}%` }}
+            />
           )}
-          {isExecuting ? "Running..." : "Execute"}
+          <span className="relative flex items-center gap-1.5">
+            {isExecuting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
+            {isExecuting && executionProgress
+              ? `${executionProgress.current}/${executionProgress.total}`
+              : isExecuting
+              ? "Running..."
+              : "Execute"}
+          </span>
         </Button>
       </div>
     </div>
