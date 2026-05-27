@@ -77,22 +77,39 @@ export function EditorToolbar({
     if (!workflow || isExecuting) return
     clearNodeStatuses()
     setIsExecuting(true)
-    toast.info("Executing workflow...")
+
+    for (const node of nodes) {
+      setNodeStatus(node.id, "waiting")
+    }
 
     const res = await fetch(`/api/workflows/${workflow.id}/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nodes, edges }),
     })
-    setIsExecuting(false)
 
     if (!res.ok) {
+      setIsExecuting(false)
+      clearNodeStatuses()
       toast.error("Execution failed")
       return
     }
+
     const data = await res.json()
+    const steps: { nodeId: string; status: string; durationMs: number; nodeName: string; error?: string }[] = data.steps ?? []
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i]
+      setNodeStatus(step.nodeId, "running")
+      await new Promise((r) => setTimeout(r, 400))
+      setNodeStatus(step.nodeId, step.status === "SUCCESS" ? "success" : "error")
+      await new Promise((r) => setTimeout(r, 200))
+    }
+
+    setIsExecuting(false)
+
     if (data.status === "SUCCESS") {
-      toast.success(`Execution completed in ${data.durationMs}ms`)
+      toast.success(`Workflow executed successfully (${data.durationMs}ms, ${steps.length} steps)`)
     } else {
       toast.error(`Execution failed: ${data.error ?? "Unknown error"}`)
     }

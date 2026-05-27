@@ -449,6 +449,21 @@ export async function POST(
       durationMs: endTime - startTime,
       error: overallError,
     },
+    include: {
+      steps: {
+        orderBy: { startedAt: "asc" },
+        select: {
+          id: true,
+          nodeId: true,
+          nodeName: true,
+          nodeType: true,
+          status: true,
+          durationMs: true,
+          outputData: true,
+          error: true,
+        },
+      },
+    },
   })
 
   return NextResponse.json({
@@ -456,5 +471,6 @@ export async function POST(
     status: updated.status,
     durationMs: updated.durationMs,
     error: updated.error,
+    steps: updated.steps,
   })
 }
