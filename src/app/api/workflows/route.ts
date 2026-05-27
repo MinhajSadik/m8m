@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth, getUserId } from "@/lib/auth"
+import { ensureUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
 
@@ -12,8 +12,7 @@ const createSchema = z.object({
 })
 
 export async function GET() {
-  const userId = getUserId(await auth())
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await ensureUserId()
 
   const workflows = await prisma.workflow.findMany({
     where: { userId },
@@ -53,8 +52,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const userId = getUserId(await auth())
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await ensureUserId()
 
   const body = await request.json()
   const parsed = createSchema.safeParse(body)

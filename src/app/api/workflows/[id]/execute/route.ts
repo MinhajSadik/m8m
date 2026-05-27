@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth, getUserId } from "@/lib/auth"
+import { ensureUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import type { Node, Edge } from "@xyflow/react"
 import type { NodeData } from "@/types"
@@ -752,8 +752,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const userId = getUserId(await auth())
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await ensureUserId()
 
   const workflow = await prisma.workflow.findFirst({ where: { id, userId } })
   if (!workflow) return NextResponse.json({ error: "No workflow data to execute" }, { status: 400 })

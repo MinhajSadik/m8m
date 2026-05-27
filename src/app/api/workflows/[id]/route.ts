@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth, getUserId } from "@/lib/auth"
+import { ensureUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
 
@@ -18,8 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const userId = getUserId(await auth())
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await ensureUserId()
 
   const workflow = await prisma.workflow.findFirst({ where: { id, userId } })
   if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -43,8 +42,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const userId = getUserId(await auth())
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await ensureUserId()
 
   const workflow = await prisma.workflow.findFirst({ where: { id, userId } })
   if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -95,8 +93,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const userId = getUserId(await auth())
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await ensureUserId()
 
   const workflow = await prisma.workflow.findFirst({ where: { id, userId } })
   if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })

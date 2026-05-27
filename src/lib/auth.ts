@@ -7,6 +7,9 @@ import { z } from "zod"
 import { authConfig } from "@/auth.config"
 import type { Session } from "next-auth"
 
+const GUEST_USER_ID = "guest-user-000000000000000"
+const GUEST_EMAIL = "guest@m8m-workflow.local"
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -64,4 +67,25 @@ export function isAdmin(session: Session | null): boolean {
 
 export function getUserId(session: Session | null): string | null {
   return session?.user?.id ?? null
+}
+
+async function ensureGuestUser(): Promise<string> {
+  await prisma.user.upsert({
+    where: { id: GUEST_USER_ID },
+    update: {},
+    create: {
+      id: GUEST_USER_ID,
+      email: GUEST_EMAIL,
+      name: "Guest",
+      role: "student",
+    },
+  })
+  return GUEST_USER_ID
+}
+
+export async function ensureUserId(): Promise<string> {
+  const session = await auth()
+  const id = session?.user?.id
+  if (id) return id
+  return ensureGuestUser()
 }

@@ -1,19 +1,9 @@
-import NextAuth from "next-auth"
-import { authConfig } from "@/auth.config"
+import { NextResponse } from "next/server"
 
-const { auth } = NextAuth(authConfig)
-
-export const middleware = auth
+export function middleware() {
+  return NextResponse.next()
+}
 
 export const config = {
-  matcher: [
-    "/workflows/:path*",
-    "/executions/:path*",
-    "/credentials/:path*",
-    "/settings/:path*",
-    "/admin/:path*",
-    "/api/workflows/:path*",
-    "/api/credentials/:path*",
-    "/api/admin/:path*",
-  ],
+  matcher: [],
 }
