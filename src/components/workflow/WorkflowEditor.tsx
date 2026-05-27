@@ -101,13 +101,6 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
     [screenToFlowPosition, addNode]
   )
 
-  function addStarterTemplate() {
-    addNode(
-      { type: "trigger.manual", label: "Manual Trigger", config: {}, color: "#f97316" },
-      { x: 300, y: 250 }
-    )
-  }
-
   return (
     <div className="flex h-full w-full bg-zinc-950">
       {panelOpen && (
@@ -174,22 +167,13 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-zinc-300 text-sm font-medium">Build your first workflow</p>
+                  <p className="text-zinc-300 text-sm font-medium">Build your workflow</p>
                   <p className="text-zinc-500 text-xs mt-1 max-w-[260px] mx-auto">
-                    Drag nodes from the left panel onto the canvas, then connect them by dragging from one node&apos;s output handle to another&apos;s input.
+                    Pick a trigger from the left panel to get started — Manual, Webhook, Schedule, or any other.
                   </p>
                 </div>
-                <button
-                  onClick={addStarterTemplate}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Start with a template
-                </button>
                 <p className="text-zinc-600 text-[11px]">
-                  Tip: You can also click any node in the left panel to add it instantly
+                  Drag &amp; drop nodes onto the canvas, then connect them
                 </p>
               </div>
             </div>
