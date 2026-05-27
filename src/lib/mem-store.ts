@@ -69,10 +69,10 @@ export const memStore = {
       if (!w || w.userId !== userId) return null
       return w
     },
-    create(data: Omit<Workflow, "id" | "createdAt" | "updatedAt" | "active"> & { active?: boolean }): Workflow {
+    create(data: Omit<Workflow, "id" | "createdAt" | "updatedAt" | "active"> & { active?: boolean; id?: string }): Workflow {
       const now = new Date()
       const w: Workflow = {
-        id: genId(),
+        id: data.id ?? genId(),
         active: data.active ?? false,
         createdAt: now,
         updatedAt: now,

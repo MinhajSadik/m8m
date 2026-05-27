@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { memStore } from "@/lib/mem-store"
@@ -77,7 +76,25 @@ export default async function WorkflowEditorPage({
     workflow = memStore.workflow.findFirst(id, userId)
   }
 
-  if (!workflow) notFound()
+  if (!workflow) {
+    workflow = memStore.workflow.create({
+      id,
+      name: "Untitled Workflow",
+      description: null,
+      userId,
+      nodes: [],
+      edges: [],
+      settings: {
+        timezone: "UTC",
+        saveExecution: "all",
+        retryOnFail: false,
+        retryCount: 3,
+        retryDelay: 1000,
+        timeout: 30000,
+      },
+      tags: [],
+    })
+  }
 
   const serialized: WorkflowData = {
     id: workflow.id,

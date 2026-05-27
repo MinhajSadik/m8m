@@ -16,10 +16,32 @@ const patchSchema = z.object({
 
 async function getWorkflow(id: string, userId: string) {
   try {
-    return await prisma.workflow.findFirst({ where: { id, userId } })
-  } catch {
-    return memStore.workflow.findFirst(id, userId)
-  }
+    const w = await prisma.workflow.findFirst({ where: { id, userId } })
+    if (w) return w
+  } catch { /* DB unavailable */ }
+  return memStore.workflow.findFirst(id, userId)
+}
+
+function getOrCreateWorkflow(id: string, userId: string) {
+  const existing = memStore.workflow.findFirst(id, userId)
+  if (existing) return existing
+  return memStore.workflow.create({
+    id,
+    name: "Untitled Workflow",
+    description: null,
+    userId,
+    nodes: [],
+    edges: [],
+    settings: {
+      timezone: "UTC",
+      saveExecution: "all",
+      retryOnFail: false,
+      retryCount: 3,
+      retryDelay: 1000,
+      timeout: 30000,
+    },
+    tags: [],
+  })
 }
 
 export async function GET(
@@ -29,8 +51,8 @@ export async function GET(
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflow = await getWorkflow(id, userId)
-  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  let workflow = await getWorkflow(id, userId)
+  if (!workflow) workflow = getOrCreateWorkflow(id, userId)
 
   return NextResponse.json({
     id: workflow.id,
@@ -53,8 +75,8 @@ export async function PATCH(
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflow = await getWorkflow(id, userId)
-  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  let workflow = await getWorkflow(id, userId)
+  if (!workflow) workflow = getOrCreateWorkflow(id, userId)
 
   const body = await request.json()
   const parsed = patchSchema.safeParse(body)

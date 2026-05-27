@@ -357,10 +357,9 @@ export async function POST(
   let workflow: { nodes: unknown; edges: unknown } | null = null
   try {
     workflow = await prisma.workflow.findFirst({ where: { id, userId } })
-  } catch {
-    workflow = memStore.workflow.findFirst(id, userId)
-  }
-  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  } catch { /* DB unavailable */ }
+  if (!workflow) workflow = memStore.workflow.findFirst(id, userId)
+  if (!workflow) return NextResponse.json({ error: "No workflow data to execute" }, { status: 400 })
 
   const body = await request.json()
   const nodes: Node<NodeData>[] = body.nodes ?? (workflow.nodes as unknown as Node<NodeData>[])
