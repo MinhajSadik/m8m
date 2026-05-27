@@ -1,17 +1,9 @@
 import { notFound } from "next/navigation"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { memStore } from "@/lib/mem-store"
 import { WorkflowEditorWrapper } from "./workflow-editor-wrapper"
 import type { WorkflowData } from "@/types"
-
-const DB_ERROR_UI = (
-  <div className="flex items-center justify-center h-full text-center">
-    <div className="space-y-2">
-      <p className="text-zinc-300 font-medium">Database not configured</p>
-      <p className="text-zinc-500 text-sm">Add DATABASE_URL to your environment variables to enable workflows.</p>
-    </div>
-  </div>
-)
 
 export default async function WorkflowEditorPage({
   params,
@@ -22,6 +14,7 @@ export default async function WorkflowEditorPage({
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   if (id === "new") {
+    let workflowId: string
     try {
       const workflow = await prisma.workflow.create({
         data: {
@@ -39,40 +32,67 @@ export default async function WorkflowEditorPage({
           },
         },
       })
-      const { redirect } = await import("next/navigation")
-      redirect(`/workflows/${workflow.id}`)
+      workflowId = workflow.id
     } catch (e) {
       if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw e
-      return DB_ERROR_UI
+      const workflow = memStore.workflow.create({
+        name: "Untitled Workflow",
+        description: null,
+        userId,
+        nodes: [],
+        edges: [],
+        settings: {
+          timezone: "UTC",
+          saveExecution: "all",
+          retryOnFail: false,
+          retryCount: 3,
+          retryDelay: 1000,
+          timeout: 30000,
+        },
+        tags: [],
+      })
+      workflowId = workflow.id
     }
+    const { redirect } = await import("next/navigation")
+    redirect(`/workflows/${workflowId}`)
   }
+
+  let workflow: {
+    id: string
+    name: string
+    description: string | null
+    active: boolean
+    nodes: unknown
+    edges: unknown
+    settings: unknown
+    tags: string[]
+    createdAt: Date
+    updatedAt: Date
+    userId: string
+  } | null = null
 
   try {
-    const workflow = await prisma.workflow.findFirst({
-      where: { id, userId },
-    })
-
-    if (!workflow) notFound()
-
-    const serialized: WorkflowData = {
-      id: workflow.id,
-      name: workflow.name,
-      description: workflow.description ?? undefined,
-      active: workflow.active,
-      nodes: workflow.nodes as unknown as WorkflowData["nodes"],
-      edges: workflow.edges as unknown as WorkflowData["edges"],
-      settings: workflow.settings as unknown as WorkflowData["settings"],
-      tags: workflow.tags,
-      createdAt: workflow.createdAt.toISOString(),
-      updatedAt: workflow.updatedAt.toISOString(),
-      userId: workflow.userId,
-    }
-
-    return <WorkflowEditorWrapper workflow={serialized} />
-  } catch (e) {
-    if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw e
-    if ((e as { name?: string }).name === "NotFoundError") throw e
-    return DB_ERROR_UI
+    workflow = await prisma.workflow.findFirst({ where: { id, userId } })
+  } catch {
+    workflow = memStore.workflow.findFirst(id, userId)
   }
+
+  if (!workflow) notFound()
+
+  const serialized: WorkflowData = {
+    id: workflow.id,
+    name: workflow.name,
+    description: workflow.description ?? undefined,
+    active: workflow.active,
+    nodes: workflow.nodes as unknown as WorkflowData["nodes"],
+    edges: workflow.edges as unknown as WorkflowData["edges"],
+    settings: workflow.settings as unknown as WorkflowData["settings"],
+    tags: workflow.tags,
+    createdAt: workflow.createdAt.toISOString(),
+    updatedAt: workflow.updatedAt.toISOString(),
+    userId: workflow.userId,
+  }
+
+  return <WorkflowEditorWrapper workflow={serialized} />
 }
 export const dynamic = 'force-dynamic'
