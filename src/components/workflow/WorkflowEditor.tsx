@@ -20,6 +20,7 @@ import { ExecutionPanel } from "./ExecutionPanel"
 import type { WorkflowData } from "@/types"
 import type { NodeData } from "@/types"
 import type { Node } from "@xyflow/react"
+import { NODE_DEFINITIONS } from "@/lib/node-definitions"
 
 const nodeTypes = {
   workflowNode: WorkflowNode,
@@ -159,24 +160,12 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
           </ReactFlow>
 
           {nodes.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center space-y-4 pointer-events-auto">
-                <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto">
-                  <svg className="w-8 h-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-zinc-300 text-sm font-medium">Build your workflow</p>
-                  <p className="text-zinc-500 text-xs mt-1 max-w-[260px] mx-auto">
-                    Pick a trigger from the left panel to get started — Manual, Webhook, Schedule, or any other.
-                  </p>
-                </div>
-                <p className="text-zinc-600 text-[11px]">
-                  Drag &amp; drop nodes onto the canvas, then connect them
-                </p>
-              </div>
-            </div>
+            <TriggerPicker onSelect={(def) => {
+              addNode(
+                { type: def.type, label: def.label, config: {}, color: def.color },
+                { x: 300, y: 250 }
+              )
+            }} />
           )}
         </div>
       </div>
@@ -192,6 +181,53 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
           <ExecutionPanel onClose={() => setShowExecutionPanel(false)} />
         </div>
       )}
+    </div>
+  )
+}
+
+const triggers = NODE_DEFINITIONS.filter((d) => d.category === "triggers")
+
+function TriggerPicker({ onSelect }: { onSelect: (def: typeof NODE_DEFINITIONS[number]) => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+      <div className="relative pointer-events-auto">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="w-14 h-14 rounded-full bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shadow-lg shadow-violet-900/40 transition-all hover:scale-110"
+        >
+          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+
+        {open && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900 shadow-2xl shadow-black/50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-zinc-800">
+              <p className="text-zinc-400 text-[11px] font-medium uppercase tracking-wide">Choose a trigger</p>
+            </div>
+            {triggers.map((def) => (
+              <button
+                key={def.type}
+                onClick={() => { onSelect(def); setOpen(false) }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-zinc-800 transition-colors text-left"
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: def.color + "20", border: `1px solid ${def.color}40` }}
+                >
+                  <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: def.color }} />
+                </div>
+                <div>
+                  <p className="text-zinc-200 text-sm font-medium">{def.label}</p>
+                  <p className="text-zinc-500 text-[11px]">{def.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
