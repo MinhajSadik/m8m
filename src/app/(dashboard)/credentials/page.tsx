@@ -1,12 +1,9 @@
-import { auth, getUserId } from "@/lib/auth"
+import { ensureUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { redirect } from "next/navigation"
 import { CredentialsClient } from "./credentials-client"
 
 export default async function CredentialsPage() {
-  const session = await auth()
-  const userId = getUserId(session)
-  if (!userId) redirect("/login")
+  const userId = await ensureUserId()
 
   const rows = await prisma.credential.findMany({
     where: { userId },

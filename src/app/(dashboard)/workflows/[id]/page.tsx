@@ -1,4 +1,4 @@
-import { auth, getUserId } from "@/lib/auth"
+import { ensureUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { redirect } from "next/navigation"
 import { WorkflowEditorWrapper } from "./workflow-editor-wrapper"
@@ -10,9 +10,7 @@ export default async function WorkflowEditorPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const session = await auth()
-  const userId = getUserId(session)
-  if (!userId) redirect("/login")
+  const userId = await ensureUserId()
 
   if (id === "new") {
     const workflow = await prisma.workflow.create({

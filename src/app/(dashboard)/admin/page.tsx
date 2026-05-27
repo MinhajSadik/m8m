@@ -1,12 +1,11 @@
-import { auth, isAdmin, getUserId } from "@/lib/auth"
+import { ensureUserId, auth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { redirect } from "next/navigation"
 import { AdminClient } from "./admin-client"
 
 export default async function AdminPage() {
+  const userId = await ensureUserId()
   const session = await auth()
-  const userId = getUserId(session)
-  if (!userId) redirect("/login")
   if (!isAdmin(session)) redirect("/workflows")
 
   const users = await prisma.user.findMany({

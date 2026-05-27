@@ -1,4 +1,4 @@
-import { auth, isAdmin, getUserId } from "@/lib/auth"
+import { ensureUserId, auth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { redirect } from "next/navigation"
 import { WorkflowEditorWrapper } from "../../../workflows/[id]/workflow-editor-wrapper"
@@ -10,9 +10,8 @@ export default async function AdminWorkflowViewPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  const userId = await ensureUserId()
   const session = await auth()
-  const userId = getUserId(session)
-  if (!userId) redirect("/login")
   if (!isAdmin(session)) redirect("/workflows")
 
   const workflow = await prisma.workflow.findUnique({

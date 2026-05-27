@@ -1,12 +1,9 @@
-import { auth, getUserId } from "@/lib/auth"
+import { ensureUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { redirect } from "next/navigation"
 import { ExecutionsClient } from "./executions-client"
 
 export default async function ExecutionsPage() {
-  const session = await auth()
-  const userId = getUserId(session)
-  if (!userId) redirect("/login")
+  const userId = await ensureUserId()
 
   const executions = await prisma.workflowExecution.findMany({
     where: { workflow: { userId } },
