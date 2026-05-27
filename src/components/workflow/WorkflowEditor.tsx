@@ -104,20 +104,8 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
   function addStarterTemplate() {
     addNode(
       { type: "trigger.manual", label: "Manual Trigger", config: {}, color: "#f97316" },
-      { x: 100, y: 200 }
+      { x: 300, y: 250 }
     )
-    setTimeout(() => {
-      addNode(
-        { type: "action.set", label: "Edit Fields", config: {}, color: "#8b5cf6" },
-        { x: 400, y: 200 }
-      )
-    }, 50)
-    setTimeout(() => {
-      addNode(
-        { type: "integration.slack", label: "Slack", config: {}, color: "#4a154b" },
-        { x: 700, y: 200 }
-      )
-    }, 100)
   }
 
   return (
