@@ -192,7 +192,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["slack", "message", "notification", "chat"],
     configSchema: [
-      { key: "credential", label: "Credential", type: "credential", required: true },
+      { key: "credential", label: "Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Send Message", value: "sendMessage" },
         { label: "Send File", value: "sendFile" },
@@ -231,7 +231,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["email", "smtp", "send", "notification"],
     configSchema: [
-      { key: "credential", label: "SMTP Credential", type: "credential", required: true },
+      { key: "credential", label: "SMTP Credential", type: "credential" },
       { key: "to", label: "To", type: "expression", required: true, placeholder: "user@example.com" },
       { key: "subject", label: "Subject", type: "expression", required: true },
       { key: "body", label: "Body", type: "expression", required: true },
@@ -249,7 +249,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["github", "git", "repo", "issue", "pr"],
     configSchema: [
-      { key: "credential", label: "GitHub Credential", type: "credential", required: true },
+      { key: "credential", label: "GitHub Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Create Issue", value: "createIssue" },
         { label: "Get Issue", value: "getIssue" },
@@ -272,7 +272,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["notion", "database", "pages", "notes"],
     configSchema: [
-      { key: "credential", label: "Notion Credential", type: "credential", required: true },
+      { key: "credential", label: "Notion Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Create Page", value: "createPage" },
         { label: "Update Page", value: "updatePage" },
@@ -292,7 +292,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["openai", "ai", "gpt", "llm", "generate"],
     configSchema: [
-      { key: "credential", label: "OpenAI Credential", type: "credential", required: true },
+      { key: "credential", label: "OpenAI Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Chat Completion", value: "chat" },
         { label: "Text Completion", value: "completion" },
@@ -321,7 +321,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["postgres", "sql", "database", "query"],
     configSchema: [
-      { key: "credential", label: "Postgres Credential", type: "credential", required: true },
+      { key: "credential", label: "Postgres Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Execute Query", value: "executeQuery" },
         { label: "Insert", value: "insert" },
@@ -343,7 +343,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["google", "sheets", "spreadsheet", "data"],
     configSchema: [
-      { key: "credential", label: "Google Credential", type: "credential", required: true },
+      { key: "credential", label: "Google Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Append Row", value: "appendRow" },
         { label: "Read Rows", value: "readRows" },
@@ -365,7 +365,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["telegram", "bot", "message", "notification"],
     configSchema: [
-      { key: "credential", label: "Telegram Credential", type: "credential", required: true },
+      { key: "credential", label: "Telegram Credential", type: "credential" },
       { key: "chatId", label: "Chat ID", type: "expression", required: true },
       { key: "text", label: "Message Text", type: "expression", required: true },
       { key: "parseMode", label: "Parse Mode", type: "select", options: [
@@ -386,7 +386,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: 1,
     tags: ["stripe", "payment", "billing", "charge"],
     configSchema: [
-      { key: "credential", label: "Stripe Credential", type: "credential", required: true },
+      { key: "credential", label: "Stripe Credential", type: "credential" },
       { key: "operation", label: "Operation", type: "select", options: [
         { label: "Create Payment Intent", value: "createPaymentIntent" },
         { label: "Get Customer", value: "getCustomer" },

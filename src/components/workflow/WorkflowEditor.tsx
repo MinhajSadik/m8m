@@ -7,7 +7,6 @@ import {
   Controls,
   MiniMap,
   BackgroundVariant,
-  Panel,
   useReactFlow,
   SelectionMode,
 } from "@xyflow/react"
@@ -38,10 +37,12 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
     setSelectedNode,
     executionNodeStatuses,
     panelOpen,
+    addNode,
   } = useWorkflowStore()
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const [showExecutionPanel, setShowExecutionPanel] = useState(false)
+  const { screenToFlowPosition } = useReactFlow()
 
   useEffect(() => {
     setWorkflow(workflow)
@@ -66,6 +67,48 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
     setSelectedNode(null)
   }, [setSelectedNode])
 
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const raw = event.dataTransfer.getData("application/m8m-node")
+      if (!raw) return
+      const def = JSON.parse(raw)
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      })
+      addNode(
+        { type: def.type, label: def.label, config: {}, color: def.color },
+        position
+      )
+    },
+    [screenToFlowPosition, addNode]
+  )
+
+  function addStarterTemplate() {
+    addNode(
+      { type: "trigger.manual", label: "Manual Trigger", config: {}, color: "#f97316" },
+      { x: 100, y: 200 }
+    )
+    setTimeout(() => {
+      addNode(
+        { type: "action.set", label: "Edit Fields", config: {}, color: "#8b5cf6" },
+        { x: 400, y: 200 }
+      )
+    }, 50)
+    setTimeout(() => {
+      addNode(
+        { type: "integration.slack", label: "Slack", config: {}, color: "#4a154b" },
+        { x: 700, y: 200 }
+      )
+    }, 100)
+  }
+
   return (
     <div className="flex h-full w-full bg-zinc-950">
       {panelOpen && (
@@ -89,6 +132,8 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
             onConnect={onConnect}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
             nodeTypes={nodeTypes}
             selectionMode={SelectionMode.Partial}
             fitView
@@ -123,9 +168,30 @@ export function WorkflowEditor({ workflow }: { workflow: WorkflowData }) {
 
           {nodes.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center">
-                <p className="text-zinc-600 text-sm font-medium">Drag a node from the panel to get started</p>
-                <p className="text-zinc-700 text-xs mt-1">or press Cmd+K to search nodes</p>
+              <div className="text-center space-y-4 pointer-events-auto">
+                <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto">
+                  <svg className="w-8 h-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-zinc-300 text-sm font-medium">Build your first workflow</p>
+                  <p className="text-zinc-500 text-xs mt-1 max-w-[260px] mx-auto">
+                    Drag nodes from the left panel onto the canvas, then connect them by dragging from one node&apos;s output handle to another&apos;s input.
+                  </p>
+                </div>
+                <button
+                  onClick={addStarterTemplate}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Start with a template
+                </button>
+                <p className="text-zinc-600 text-[11px]">
+                  Tip: You can also click any node in the left panel to add it instantly
+                </p>
               </div>
             </div>
           )}

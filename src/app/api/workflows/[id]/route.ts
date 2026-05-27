@@ -142,13 +142,14 @@ export async function DELETE(
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflow = await getWorkflow(id, userId)
-  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
   try {
-    await prisma.workflow.delete({ where: { id } })
-  } catch {
-    memStore.workflow.delete(id)
-  }
+    const existing = await prisma.workflow.findFirst({ where: { id, userId } })
+    if (existing) {
+      await prisma.workflow.delete({ where: { id } })
+      return new NextResponse(null, { status: 204 })
+    }
+  } catch { /* DB unavailable, fall through to memStore */ }
+
+  memStore.workflow.delete(id)
   return new NextResponse(null, { status: 204 })
 }
