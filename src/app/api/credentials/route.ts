@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { ensureGuestUser } from "@/lib/guest"
 import { z } from "zod"
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto"
 
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
   const encryptedData = encrypt(parsed.data.data)
 
   try {
+    await ensureGuestUser(userId)
     const credential = await prisma.credential.create({
       data: {
         name: parsed.data.name,

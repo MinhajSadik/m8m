@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { ensureGuestUser } from "@/lib/guest"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   try {
+    await ensureGuestUser(userId)
     const workflow = await prisma.workflow.create({
       data: {
         name: parsed.data.name,
