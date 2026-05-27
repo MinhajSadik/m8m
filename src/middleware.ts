@@ -1,6 +1,14 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+export { auth as middleware } from "@/lib/auth"
 
-export function middleware(_req: NextRequest) {
-  return NextResponse.next()
+export const config = {
+  matcher: [
+    "/workflows/:path*",
+    "/executions/:path*",
+    "/credentials/:path*",
+    "/settings/:path*",
+    "/admin/:path*",
+    "/api/workflows/:path*",
+    "/api/credentials/:path*",
+    "/api/admin/:path*",
+  ],
 }

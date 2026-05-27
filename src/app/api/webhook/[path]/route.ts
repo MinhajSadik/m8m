@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { memStore } from "@/lib/mem-store"
 import type { Node, Edge } from "@xyflow/react"
 import type { NodeData } from "@/types"
 
@@ -37,19 +36,15 @@ async function handleWebhook(
   { path }: { path: string },
   method: string
 ) {
-  let workflow: { id: string; nodes: unknown; edges: unknown } | null = null
-
-  try {
-    const webhook = await prisma.webhookPath.findUnique({
-      where: { path, active: true },
-      include: { workflow: true },
-    })
-    if (webhook) workflow = webhook.workflow
-  } catch { /* DB unavailable */ }
-
-  if (!workflow) {
+  const webhook = await prisma.webhookPath.findUnique({
+    where: { path, active: true },
+    include: { workflow: true },
+  })
+  if (!webhook) {
     return NextResponse.json({ error: "Webhook not found or inactive" }, { status: 404 })
   }
+
+  const workflow = webhook.workflow
 
   const contentType = request.headers.get("content-type") ?? ""
   let body: unknown = null
@@ -69,23 +64,15 @@ async function handleWebhook(
     timestamp: new Date().toISOString(),
   }))
 
-  let executionId: string
-  let useMemFallback = false
-  try {
-    const execution = await prisma.workflowExecution.create({
-      data: {
-        workflowId: workflow.id,
-        status: "RUNNING",
-        mode: "WEBHOOK",
-        triggerData,
-      },
-    })
-    executionId = execution.id
-  } catch {
-    useMemFallback = true
-    const execution = memStore.execution.create(workflow.id, "WEBHOOK")
-    executionId = execution.id
-  }
+  const execution = await prisma.workflowExecution.create({
+    data: {
+      workflowId: workflow.id,
+      status: "RUNNING",
+      mode: "WEBHOOK",
+      triggerData,
+    },
+  })
+  const executionId = execution.id
 
   const nodes = workflow.nodes as unknown as Node<NodeData>[]
   const edges = workflow.edges as unknown as Edge[]
@@ -115,37 +102,20 @@ async function handleWebhook(
     const stepStart = Date.now()
     outputs.set(node.id, inputData)
 
-    try {
-      if (!useMemFallback) {
-        await prisma.executionStep.create({
-          data: {
-            executionId,
-            nodeId: node.id,
-            nodeName: node.data.label,
-            nodeType: node.data.type,
-            status: "SUCCESS",
-            startedAt: new Date(stepStart),
-            finishedAt: new Date(),
-            durationMs: Date.now() - stepStart,
-            inputData: inputData as object,
-            outputData: inputData as object,
-          },
-        })
-      } else {
-        memStore.execution.addStep(executionId, {
-          nodeId: node.id,
-          nodeName: node.data.label,
-          nodeType: node.data.type,
-          status: "SUCCESS",
-          startedAt: new Date(stepStart),
-          finishedAt: new Date(),
-          durationMs: Date.now() - stepStart,
-          inputData,
-          outputData: inputData,
-          error: null,
-        })
-      }
-    } catch { /* non-fatal */ }
+    await prisma.executionStep.create({
+      data: {
+        executionId,
+        nodeId: node.id,
+        nodeName: node.data.label,
+        nodeType: node.data.type,
+        status: "SUCCESS",
+        startedAt: new Date(stepStart),
+        finishedAt: new Date(),
+        durationMs: Date.now() - stepStart,
+        inputData: inputData as object,
+        outputData: inputData as object,
+      },
+    })
 
     const nextNodes = (adjacency.get(node.id) ?? [])
       .map((targetId) => nodes.find((n) => n.id === targetId))
@@ -155,26 +125,15 @@ async function handleWebhook(
 
   const endTime = Date.now()
 
-  try {
-    if (!useMemFallback) {
-      await prisma.workflowExecution.update({
-        where: { id: executionId },
-        data: {
-          status: overallError ? "ERROR" : "SUCCESS",
-          finishedAt: new Date(endTime),
-          durationMs: endTime - startTime,
-          error: overallError,
-        },
-      })
-    } else {
-      memStore.execution.update(executionId, {
-        status: overallError ? "ERROR" : "SUCCESS",
-        finishedAt: new Date(endTime),
-        durationMs: endTime - startTime,
-        error: overallError ?? null,
-      })
-    }
-  } catch { /* non-fatal */ }
+  await prisma.workflowExecution.update({
+    where: { id: executionId },
+    data: {
+      status: overallError ? "ERROR" : "SUCCESS",
+      finishedAt: new Date(endTime),
+      durationMs: endTime - startTime,
+      error: overallError,
+    },
+  })
 
   return NextResponse.json({ received: true, executionId })
 }

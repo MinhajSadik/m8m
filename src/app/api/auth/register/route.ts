@@ -24,8 +24,11 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await bcrypt.hash(password, 12)
+  const adminEmail = process.env.ADMIN_EMAIL
+  const role = adminEmail && email === adminEmail ? "admin" : "student"
+
   const user = await prisma.user.create({
-    data: { name, email, passwordHash },
+    data: { name, email, passwordHash, role },
     select: { id: true, email: true, name: true },
   })
 

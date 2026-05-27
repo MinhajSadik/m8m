@@ -1,10 +1,10 @@
-import { auth, getUserId } from "@/lib/auth"
+import { auth, isAdmin, getUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { redirect } from "next/navigation"
-import { WorkflowEditorWrapper } from "./workflow-editor-wrapper"
+import { WorkflowEditorWrapper } from "../../../workflows/[id]/workflow-editor-wrapper"
 import type { WorkflowData } from "@/types"
 
-export default async function WorkflowEditorPage({
+export default async function AdminWorkflowViewPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -13,33 +13,17 @@ export default async function WorkflowEditorPage({
   const session = await auth()
   const userId = getUserId(session)
   if (!userId) redirect("/login")
+  if (!isAdmin(session)) redirect("/workflows")
 
-  if (id === "new") {
-    const workflow = await prisma.workflow.create({
-      data: {
-        name: "Untitled Workflow",
-        userId,
-        nodes: [],
-        edges: [],
-        settings: {
-          timezone: "UTC",
-          saveExecution: "all",
-          retryOnFail: false,
-          retryCount: 3,
-          retryDelay: 1000,
-          timeout: 30000,
-        },
-      },
-    })
-    redirect(`/workflows/${workflow.id}`)
-  }
-
-  const workflow = await prisma.workflow.findFirst({ where: { id, userId } })
-  if (!workflow) redirect("/workflows")
+  const workflow = await prisma.workflow.findUnique({
+    where: { id },
+    include: { user: { select: { name: true, email: true } } },
+  })
+  if (!workflow) redirect("/admin")
 
   const data: WorkflowData = {
     id: workflow.id,
-    name: workflow.name,
+    name: `[${workflow.user.name || workflow.user.email}] ${workflow.name}`,
     description: workflow.description ?? undefined,
     active: workflow.active,
     nodes: workflow.nodes as unknown as WorkflowData["nodes"],

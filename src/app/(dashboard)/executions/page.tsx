@@ -1,81 +1,47 @@
-import { auth, GUEST_USER_ID } from "@/lib/auth"
+import { auth, getUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { memStore } from "@/lib/mem-store"
+import { redirect } from "next/navigation"
 import { ExecutionsClient } from "./executions-client"
 
 export default async function ExecutionsPage() {
-  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  const session = await auth()
+  const userId = getUserId(session)
+  if (!userId) redirect("/login")
 
-  let serialized: {
-    id: string; workflowId: string; workflowName: string; status: string; mode: string;
-    startedAt: string; finishedAt?: string; durationMs: number | null; error: string | null;
-    steps: { id: string; nodeId: string; nodeName: string; nodeType: string; status: string;
-      startedAt: string; finishedAt?: string; durationMs: number | null; error: string | null }[]
-  }[] = []
+  const executions = await prisma.workflowExecution.findMany({
+    where: { workflow: { userId } },
+    orderBy: { startedAt: "desc" },
+    take: 100,
+    include: {
+      workflow: { select: { name: true, id: true } },
+      steps: { orderBy: { startedAt: "asc" } },
+    },
+  })
 
-  try {
-    const executions = await prisma.workflowExecution.findMany({
-      where: { workflow: { userId } },
-      orderBy: { startedAt: "desc" },
-      take: 100,
-      include: {
-        workflow: { select: { name: true, id: true } },
-        steps: { orderBy: { startedAt: "asc" } },
-      },
-    })
-    serialized = executions.map((e) => ({
-      id: e.id,
-      workflowId: e.workflowId,
-      workflowName: e.workflow.name,
-      status: e.status,
-      mode: e.mode,
-      startedAt: e.startedAt.toISOString(),
-      finishedAt: e.finishedAt?.toISOString(),
-      durationMs: e.durationMs,
-      error: e.error,
-      steps: e.steps.map((s) => ({
-        id: s.id,
-        nodeId: s.nodeId,
-        nodeName: s.nodeName,
-        nodeType: s.nodeType,
-        status: s.status,
-        startedAt: s.startedAt.toISOString(),
-        finishedAt: s.finishedAt?.toISOString(),
-        durationMs: s.durationMs,
-        error: s.error,
-      })),
-    }))
-  } catch {
-    const workflows = memStore.workflow.findMany(userId)
-    for (const wf of workflows) {
-      const execs = memStore.execution.findMany(wf.id)
-      for (const e of execs) {
-        serialized.push({
-          id: e.id,
-          workflowId: e.workflowId,
-          workflowName: wf.name,
-          status: e.status,
-          mode: e.mode,
-          startedAt: e.startedAt.toISOString(),
-          finishedAt: e.finishedAt?.toISOString(),
-          durationMs: e.durationMs,
-          error: e.error,
-          steps: e.steps.map((s) => ({
-            id: s.id,
-            nodeId: s.nodeId,
-            nodeName: s.nodeName,
-            nodeType: s.nodeType,
-            status: s.status,
-            startedAt: s.startedAt.toISOString(),
-            finishedAt: s.finishedAt?.toISOString(),
-            durationMs: s.durationMs,
-            error: s.error,
-          })),
-        })
-      }
-    }
-  }
+  const serialized = executions.map((e) => ({
+    id: e.id,
+    workflowId: e.workflowId,
+    workflowName: e.workflow.name,
+    status: e.status,
+    mode: e.mode,
+    startedAt: e.startedAt.toISOString(),
+    finishedAt: e.finishedAt?.toISOString(),
+    durationMs: e.durationMs,
+    error: e.error,
+    steps: e.steps.map((s) => ({
+      id: s.id,
+      nodeId: s.nodeId,
+      nodeName: s.nodeName,
+      nodeType: s.nodeType,
+      status: s.status,
+      startedAt: s.startedAt.toISOString(),
+      finishedAt: s.finishedAt?.toISOString(),
+      durationMs: s.durationMs,
+      error: s.error,
+    })),
+  }))
 
   return <ExecutionsClient executions={serialized} />
 }
-export const dynamic = 'force-dynamic'
+
+export const dynamic = "force-dynamic"

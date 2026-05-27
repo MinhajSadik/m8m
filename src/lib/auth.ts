@@ -1,14 +1,11 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import GitHub from "next-auth/providers/github"
-import Google from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/db"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { authConfig } from "@/auth.config"
-
-export const GUEST_USER_ID = "guest"
+import type { Session } from "next-auth"
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -19,14 +16,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
   providers: [
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
     Credentials({
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials)
@@ -46,13 +35,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
-      if (user) token.id = user.id
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id as string },
+          select: { role: true, email: true },
+        })
+        const adminEmail = process.env.ADMIN_EMAIL
+        token.role =
+          dbUser?.role === "admin" || (adminEmail && dbUser?.email === adminEmail)
+            ? "admin"
+            : "student"
+      }
       return token
     },
     session({ session, token }) {
       if (token.id) session.user.id = token.id as string
+      if (token.role) (session.user as { role?: string }).role = token.role as string
       return session
     },
   },
 })
+
+export function isAdmin(session: Session | null): boolean {
+  return (session?.user as { role?: string })?.role === "admin"
+}
+
+export function getUserId(session: Session | null): string | null {
+  return session?.user?.id ?? null
+}

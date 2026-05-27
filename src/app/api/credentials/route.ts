@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server"
-import { auth, GUEST_USER_ID } from "@/lib/auth"
+import { auth, getUserId } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { ensureGuestUser } from "@/lib/guest"
-import { memStore } from "@/lib/mem-store"
 import { z } from "zod"
 import { createCipheriv, randomBytes, scryptSync } from "crypto"
 
@@ -21,38 +19,27 @@ function encrypt(text: string): string {
 }
 
 export async function GET() {
-  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  const userId = getUserId(await auth())
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  try {
-    const credentials = await prisma.credential.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
-    })
+  const credentials = await prisma.credential.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
+  })
 
-    return NextResponse.json(
-      credentials.map((c) => ({
-        ...c,
-        createdAt: c.createdAt.toISOString(),
-        updatedAt: c.updatedAt.toISOString(),
-      }))
-    )
-  } catch {
-    const credentials = memStore.credential.findMany(userId)
-    return NextResponse.json(
-      credentials.map((c) => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        createdAt: c.createdAt.toISOString(),
-        updatedAt: c.updatedAt.toISOString(),
-      }))
-    )
-  }
+  return NextResponse.json(
+    credentials.map((c) => ({
+      ...c,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    }))
+  )
 }
 
 export async function POST(request: Request) {
-  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  const userId = getUserId(await auth())
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await request.json()
   const parsed = schema.safeParse(body)
@@ -60,35 +47,19 @@ export async function POST(request: Request) {
 
   const encryptedData = encrypt(parsed.data.data)
 
-  try {
-    await ensureGuestUser(userId)
-    const credential = await prisma.credential.create({
-      data: {
-        name: parsed.data.name,
-        type: parsed.data.type,
-        data: encryptedData,
-        userId,
-      },
-      select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
-    })
-    return NextResponse.json({
-      ...credential,
-      createdAt: credential.createdAt.toISOString(),
-      updatedAt: credential.updatedAt.toISOString(),
-    })
-  } catch {
-    const credential = memStore.credential.create({
+  const credential = await prisma.credential.create({
+    data: {
       name: parsed.data.name,
       type: parsed.data.type,
       data: encryptedData,
       userId,
-    })
-    return NextResponse.json({
-      id: credential.id,
-      name: credential.name,
-      type: credential.type,
-      createdAt: credential.createdAt.toISOString(),
-      updatedAt: credential.updatedAt.toISOString(),
-    })
-  }
+    },
+    select: { id: true, name: true, type: true, createdAt: true, updatedAt: true },
+  })
+
+  return NextResponse.json({
+    ...credential,
+    createdAt: credential.createdAt.toISOString(),
+    updatedAt: credential.updatedAt.toISOString(),
+  })
 }
