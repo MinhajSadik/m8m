@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { memStore } from "@/lib/mem-store"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -14,42 +15,41 @@ const patchSchema = z.object({
 })
 
 async function getWorkflow(id: string, userId: string) {
-  return prisma.workflow.findFirst({ where: { id, userId } })
+  try {
+    return await prisma.workflow.findFirst({ where: { id, userId } })
+  } catch {
+    return memStore.workflow.findFirst(id, userId)
+  }
 }
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  const { id } = await params
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-    const workflow = await getWorkflow(id, userId)
-    if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const workflow = await getWorkflow(id, userId)
+  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    return NextResponse.json({
-      id: workflow.id,
-      name: workflow.name,
-      description: workflow.description,
-      active: workflow.active,
-      nodes: workflow.nodes,
-      edges: workflow.edges,
-      settings: workflow.settings,
-      tags: workflow.tags,
-      createdAt: workflow.createdAt.toISOString(),
-      updatedAt: workflow.updatedAt.toISOString(),
-    })
-  } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
-  }
+  return NextResponse.json({
+    id: workflow.id,
+    name: workflow.name,
+    description: workflow.description,
+    active: workflow.active,
+    nodes: workflow.nodes,
+    edges: workflow.edges,
+    settings: workflow.settings,
+    tags: workflow.tags,
+    createdAt: workflow.createdAt.toISOString(),
+    updatedAt: workflow.updatedAt.toISOString(),
+  })
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
@@ -62,41 +62,54 @@ export async function PATCH(
 
   const { nodes, edges, settings, ...rest } = parsed.data
 
-  if (nodes !== undefined || edges !== undefined) {
-    const latestVersion = await prisma.workflowVersion.findFirst({
-      where: { workflowId: id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    })
-    await prisma.workflowVersion.create({
+  try {
+    if (nodes !== undefined || edges !== undefined) {
+      const latestVersion = await prisma.workflowVersion.findFirst({
+        where: { workflowId: id },
+        orderBy: { version: "desc" },
+        select: { version: true },
+      })
+      await prisma.workflowVersion.create({
+        data: {
+          workflowId: id,
+          version: (latestVersion?.version ?? 0) + 1,
+          nodes: JSON.parse(JSON.stringify(nodes ?? workflow.nodes)),
+          edges: JSON.parse(JSON.stringify(edges ?? workflow.edges)),
+          settings: JSON.parse(JSON.stringify(settings ?? workflow.settings)),
+        },
+      })
+    }
+
+    const updated = await prisma.workflow.update({
+      where: { id },
       data: {
-        workflowId: id,
-        version: (latestVersion?.version ?? 0) + 1,
-        nodes: JSON.parse(JSON.stringify(nodes ?? workflow.nodes)),
-        edges: JSON.parse(JSON.stringify(edges ?? workflow.edges)),
-        settings: JSON.parse(JSON.stringify(settings ?? workflow.settings)),
+        ...rest,
+        ...(nodes !== undefined && { nodes }),
+        ...(edges !== undefined && { edges }),
+        ...(settings !== undefined && { settings }),
       },
     })
-  }
 
-  const updated = await prisma.workflow.update({
-    where: { id },
-    data: {
+    return NextResponse.json({
+      id: updated.id,
+      name: updated.name,
+      active: updated.active,
+      updatedAt: updated.updatedAt.toISOString(),
+    })
+  } catch {
+    const updated = memStore.workflow.update(id, {
       ...rest,
       ...(nodes !== undefined && { nodes }),
       ...(edges !== undefined && { edges }),
       ...(settings !== undefined && { settings }),
-    },
-  })
-
-  return NextResponse.json({
-    id: updated.id,
-    name: updated.name,
-    active: updated.active,
-    updatedAt: updated.updatedAt.toISOString(),
-  })
-  } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    })
+    if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    return NextResponse.json({
+      id: updated.id,
+      name: updated.name,
+      active: updated.active,
+      updatedAt: updated.updatedAt.toISOString(),
+    })
   }
 }
 
@@ -104,16 +117,16 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+
+  const workflow = await getWorkflow(id, userId)
+  if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
   try {
-    const { id } = await params
-    const userId = (await auth())?.user?.id ?? GUEST_USER_ID
-
-    const workflow = await getWorkflow(id, userId)
-    if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
     await prisma.workflow.delete({ where: { id } })
-    return new NextResponse(null, { status: 204 })
   } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    memStore.workflow.delete(id)
   }
+  return new NextResponse(null, { status: 204 })
 }

@@ -11,9 +11,12 @@ function createPrismaClient() {
     process.env.DATABASE_URL ??
     process.env.POSTGRES_PRISMA_URL ??
     process.env.POSTGRES_URL
+  if (!dbUrl) {
+    return new PrismaClient({ log: ["error"] })
+  }
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: dbUrl?.includes("localhost") || dbUrl?.includes("127.0.0.1") ? false : { rejectUnauthorized: false },
+    ssl: dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1") ? false : { rejectUnauthorized: false },
   })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({

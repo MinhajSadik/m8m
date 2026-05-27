@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { ensureGuestUser } from "@/lib/guest"
+import { memStore } from "@/lib/mem-store"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -13,46 +14,73 @@ const createSchema = z.object({
 })
 
 export async function GET() {
-  try {
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  const workflows = await prisma.workflow.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
-    include: {
-      _count: { select: { executions: true } },
-      executions: {
-        take: 1,
-        orderBy: { startedAt: "desc" },
-        select: { status: true, startedAt: true, finishedAt: true, durationMs: true, mode: true, id: true },
+  try {
+    await ensureGuestUser(userId)
+    const workflows = await prisma.workflow.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        _count: { select: { executions: true } },
+        executions: {
+          take: 1,
+          orderBy: { startedAt: "desc" },
+          select: { status: true, startedAt: true, finishedAt: true, durationMs: true, mode: true, id: true },
+        },
       },
-    },
-  })
+    })
 
-  return NextResponse.json(
-    workflows.map((w) => ({
-      id: w.id,
-      name: w.name,
-      description: w.description,
-      active: w.active,
-      tags: w.tags,
-      createdAt: w.createdAt.toISOString(),
-      updatedAt: w.updatedAt.toISOString(),
-      executionCount: w._count.executions,
-      lastExecution: w.executions[0]
-        ? {
-            id: w.executions[0].id,
-            status: w.executions[0].status,
-            startedAt: w.executions[0].startedAt.toISOString(),
-            finishedAt: w.executions[0].finishedAt?.toISOString(),
-            durationMs: w.executions[0].durationMs,
-            mode: w.executions[0].mode,
-          }
-        : null,
-    }))
-  )
+    return NextResponse.json(
+      workflows.map((w) => ({
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        active: w.active,
+        tags: w.tags,
+        createdAt: w.createdAt.toISOString(),
+        updatedAt: w.updatedAt.toISOString(),
+        executionCount: w._count.executions,
+        lastExecution: w.executions[0]
+          ? {
+              id: w.executions[0].id,
+              status: w.executions[0].status,
+              startedAt: w.executions[0].startedAt.toISOString(),
+              finishedAt: w.executions[0].finishedAt?.toISOString(),
+              durationMs: w.executions[0].durationMs,
+              mode: w.executions[0].mode,
+            }
+          : null,
+      }))
+    )
   } catch {
-    return NextResponse.json([])
+    const workflows = memStore.workflow.findMany(userId)
+    const execs = workflows.map((w) => {
+      const wExecs = memStore.execution.findMany(w.id)
+      return { ...w, executions: wExecs }
+    })
+    return NextResponse.json(
+      execs.map((w) => ({
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        active: w.active,
+        tags: w.tags,
+        createdAt: w.createdAt.toISOString(),
+        updatedAt: w.updatedAt.toISOString(),
+        executionCount: w.executions.length,
+        lastExecution: w.executions[0]
+          ? {
+              id: w.executions[0].id,
+              status: w.executions[0].status,
+              startedAt: w.executions[0].startedAt.toISOString(),
+              finishedAt: w.executions[0].finishedAt?.toISOString(),
+              durationMs: w.executions[0].durationMs,
+              mode: w.executions[0].mode,
+            }
+          : null,
+      }))
+    )
   }
 }
 
@@ -93,6 +121,30 @@ export async function POST(request: Request) {
       updatedAt: workflow.updatedAt.toISOString(),
     })
   } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    const workflow = memStore.workflow.create({
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      nodes: parsed.data.nodes ?? [],
+      edges: parsed.data.edges ?? [],
+      tags: parsed.data.tags ?? [],
+      userId,
+      settings: {
+        timezone: "UTC",
+        saveExecution: "all",
+        retryOnFail: false,
+        retryCount: 3,
+        retryDelay: 1000,
+        timeout: 30000,
+      },
+    })
+    return NextResponse.json({
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description,
+      active: workflow.active,
+      tags: workflow.tags,
+      createdAt: workflow.createdAt.toISOString(),
+      updatedAt: workflow.updatedAt.toISOString(),
+    })
   }
 }

@@ -1,5 +1,6 @@
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { memStore } from "@/lib/mem-store"
 import { WorkflowsClient } from "./workflows-client"
 
 export default async function WorkflowsPage() {
@@ -46,7 +47,30 @@ export default async function WorkflowsPage() {
         : undefined,
     }))
   } catch {
-    // DB not yet configured — render empty state
+    const workflows = memStore.workflow.findMany(userId)
+    serialized = workflows.map((w) => {
+      const execs = memStore.execution.findMany(w.id)
+      return {
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        active: w.active,
+        tags: w.tags,
+        createdAt: w.createdAt.toISOString(),
+        updatedAt: w.updatedAt.toISOString(),
+        executionCount: execs.length,
+        lastExecution: execs[0]
+          ? {
+              id: execs[0].id,
+              status: execs[0].status,
+              startedAt: execs[0].startedAt.toISOString(),
+              finishedAt: execs[0].finishedAt?.toISOString(),
+              durationMs: execs[0].durationMs,
+              mode: execs[0].mode,
+            }
+          : undefined,
+      }
+    })
   }
 
   return <WorkflowsClient workflows={serialized} />

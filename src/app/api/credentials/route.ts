@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { ensureGuestUser } from "@/lib/guest"
+import { memStore } from "@/lib/mem-store"
 import { z } from "zod"
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto"
+import { createCipheriv, randomBytes, scryptSync } from "crypto"
 
 const schema = z.object({
   name: z.string().min(1).max(255),
@@ -20,9 +21,9 @@ function encrypt(text: string): string {
 }
 
 export async function GET() {
-  try {
-    const userId = (await auth())?.user?.id ?? GUEST_USER_ID
+  const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
+  try {
     const credentials = await prisma.credential.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -37,7 +38,16 @@ export async function GET() {
       }))
     )
   } catch {
-    return NextResponse.json([])
+    const credentials = memStore.credential.findMany(userId)
+    return NextResponse.json(
+      credentials.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      }))
+    )
   }
 }
 
@@ -67,6 +77,18 @@ export async function POST(request: Request) {
       updatedAt: credential.updatedAt.toISOString(),
     })
   } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    const credential = memStore.credential.create({
+      name: parsed.data.name,
+      type: parsed.data.type,
+      data: encryptedData,
+      userId,
+    })
+    return NextResponse.json({
+      id: credential.id,
+      name: credential.name,
+      type: credential.type,
+      createdAt: credential.createdAt.toISOString(),
+      updatedAt: credential.updatedAt.toISOString(),
+    })
   }
 }

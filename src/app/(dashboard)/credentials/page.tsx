@@ -1,5 +1,6 @@
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { memStore } from "@/lib/mem-store"
 import { CredentialsClient } from "./credentials-client"
 
 export default async function CredentialsPage() {
@@ -18,7 +19,13 @@ export default async function CredentialsPage() {
       updatedAt: c.updatedAt.toISOString(),
     }))
   } catch {
-    // DB not yet configured — render empty state
+    credentials = memStore.credential.findMany(userId).map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    }))
   }
 
   return <CredentialsClient credentials={credentials} />

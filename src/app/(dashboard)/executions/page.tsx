@@ -1,5 +1,6 @@
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { memStore } from "@/lib/mem-store"
 import { ExecutionsClient } from "./executions-client"
 
 export default async function ExecutionsPage() {
@@ -45,7 +46,34 @@ export default async function ExecutionsPage() {
       })),
     }))
   } catch {
-    // DB not yet configured — render empty state
+    const workflows = memStore.workflow.findMany(userId)
+    for (const wf of workflows) {
+      const execs = memStore.execution.findMany(wf.id)
+      for (const e of execs) {
+        serialized.push({
+          id: e.id,
+          workflowId: e.workflowId,
+          workflowName: wf.name,
+          status: e.status,
+          mode: e.mode,
+          startedAt: e.startedAt.toISOString(),
+          finishedAt: e.finishedAt?.toISOString(),
+          durationMs: e.durationMs,
+          error: e.error,
+          steps: e.steps.map((s) => ({
+            id: s.id,
+            nodeId: s.nodeId,
+            nodeName: s.nodeName,
+            nodeType: s.nodeType,
+            status: s.status,
+            startedAt: s.startedAt.toISOString(),
+            finishedAt: s.finishedAt?.toISOString(),
+            durationMs: s.durationMs,
+            error: s.error,
+          })),
+        })
+      }
+    }
   }
 
   return <ExecutionsClient executions={serialized} />

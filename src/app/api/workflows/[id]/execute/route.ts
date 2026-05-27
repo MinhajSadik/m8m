@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth, GUEST_USER_ID } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { memStore } from "@/lib/mem-store"
 import type { Node, Edge } from "@xyflow/react"
 import type { NodeData } from "@/types"
 
@@ -353,13 +354,11 @@ export async function POST(
   const { id } = await params
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
-  let workflow
+  let workflow: { nodes: unknown; edges: unknown } | null = null
   try {
-    workflow = await prisma.workflow.findFirst({
-      where: { id, userId },
-    })
+    workflow = await prisma.workflow.findFirst({ where: { id, userId } })
   } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    workflow = memStore.workflow.findFirst(id, userId)
   }
   if (!workflow) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -367,17 +366,21 @@ export async function POST(
   const nodes: Node<NodeData>[] = body.nodes ?? (workflow.nodes as unknown as Node<NodeData>[])
   const edges: Edge[] = body.edges ?? (workflow.edges as unknown as Edge[])
 
-  let execution: { id: string }
+  let executionId: string
+  let useMemStore = false
   try {
-    execution = await prisma.workflowExecution.create({
+    const execution = await prisma.workflowExecution.create({
       data: { workflowId: id, status: "RUNNING", mode: "MANUAL" },
     })
+    executionId = execution.id
   } catch {
-    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    useMemStore = true
+    const execution = memStore.execution.create(id, "MANUAL")
+    executionId = execution.id
   }
 
   const startTime = Date.now()
-  const ctx: ExecutionContext = { nodeOutputs: new Map(), executionId: execution.id }
+  const ctx: ExecutionContext = { nodeOutputs: new Map(), executionId }
   let overallError: string | undefined
 
   const adjacency = new Map<string, string[]>()
@@ -425,9 +428,24 @@ export async function POST(
 
     const stepEnd = Date.now()
     try {
-      await prisma.executionStep.create({
-        data: {
-          executionId: execution.id,
+      if (!useMemStore) {
+        await prisma.executionStep.create({
+          data: {
+            executionId,
+            nodeId: node.id,
+            nodeName: node.data.label,
+            nodeType: node.data.type,
+            status: stepStatus,
+            startedAt: new Date(stepStart),
+            finishedAt: new Date(stepEnd),
+            durationMs: stepEnd - stepStart,
+            inputData: inputData ? (inputData as object) : undefined,
+            outputData: stepOutput ? (stepOutput as object) : undefined,
+            error: stepError,
+          },
+        })
+      } else {
+        memStore.execution.addStep(executionId, {
           nodeId: node.id,
           nodeName: node.data.label,
           nodeType: node.data.type,
@@ -435,11 +453,11 @@ export async function POST(
           startedAt: new Date(stepStart),
           finishedAt: new Date(stepEnd),
           durationMs: stepEnd - stepStart,
-          inputData: inputData ? (inputData as object) : undefined,
-          outputData: stepOutput ? (stepOutput as object) : undefined,
-          error: stepError,
-        },
-      })
+          inputData: inputData ?? null,
+          outputData: stepOutput ?? null,
+          error: stepError ?? null,
+        })
+      }
     } catch { /* non-fatal: step recording failed */ }
 
     if (stepStatus === "ERROR") break
@@ -454,27 +472,35 @@ export async function POST(
   const finalStatus = overallError ? "ERROR" : "SUCCESS"
 
   try {
-    const updated = await prisma.workflowExecution.update({
-      where: { id: execution.id },
-      data: {
-        status: finalStatus,
-        finishedAt: new Date(endTime),
-        durationMs: endTime - startTime,
-        error: overallError,
-      },
-    })
-    return NextResponse.json({
-      id: updated.id,
-      status: updated.status,
-      durationMs: updated.durationMs,
-      error: updated.error,
-    })
-  } catch {
-    return NextResponse.json({
-      id: execution.id,
-      status: finalStatus,
-      durationMs: endTime - startTime,
-      error: overallError ?? null,
-    })
-  }
+    if (!useMemStore) {
+      const updated = await prisma.workflowExecution.update({
+        where: { id: executionId },
+        data: {
+          status: finalStatus,
+          finishedAt: new Date(endTime),
+          durationMs: endTime - startTime,
+          error: overallError,
+        },
+      })
+      return NextResponse.json({
+        id: updated.id,
+        status: updated.status,
+        durationMs: updated.durationMs,
+        error: updated.error,
+      })
+    }
+  } catch { /* fall through to mem response */ }
+
+  memStore.execution.update(executionId, {
+    status: finalStatus,
+    finishedAt: new Date(endTime),
+    durationMs: endTime - startTime,
+    error: overallError ?? null,
+  })
+  return NextResponse.json({
+    id: executionId,
+    status: finalStatus,
+    durationMs: endTime - startTime,
+    error: overallError ?? null,
+  })
 }
