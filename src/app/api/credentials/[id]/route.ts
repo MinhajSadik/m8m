@@ -11,17 +11,13 @@ export async function DELETE(
   const userId = (await auth())?.user?.id ?? GUEST_USER_ID
 
   try {
-    const credential = await prisma.credential.findFirst({
-      where: { id, userId },
-    })
-    if (!credential) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const credential = await prisma.credential.findFirst({ where: { id, userId } })
+    if (credential) {
+      await prisma.credential.delete({ where: { id } })
+      return new NextResponse(null, { status: 204 })
+    }
+  } catch { /* DB unavailable */ }
 
-    await prisma.credential.delete({ where: { id } })
-    return new NextResponse(null, { status: 204 })
-  } catch {
-    const credential = memStore.credential.findFirst(id, userId)
-    if (!credential) return NextResponse.json({ error: "Not found" }, { status: 404 })
-    memStore.credential.delete(id)
-    return new NextResponse(null, { status: 204 })
-  }
+  memStore.credential.delete(id)
+  return new NextResponse(null, { status: 204 })
 }
